@@ -91,6 +91,26 @@ class TrafficServer:
         
         return self.ip_loggers[ip]
 
+    def print_packet(self, data):
+        os.system('clear')
+        print(f"=== Ağ Trafiği Analizi ===")
+        print(f"Sunucu IP: 194.135.82.193")
+        print(f"Toplam Paket: {self.total_packets}")
+        print(f"Zaman: {data['timestamp']}")
+        print(f"Protokol: {data['protocol']}")
+        print(f"Kaynak: {data['source_ip']}")
+        print(f"Hedef: {data['dest_ip']}")
+        
+        if data['ports']:
+            print(f"Kaynak Port: {data['ports'].get('source_port')}")
+            print(f"Hedef Port: {data['ports'].get('dest_port')}")
+        
+        print(f"Boyut: {data['size']} bytes")
+        print(f"Veri İçeriği: {data['data']}")
+        print("-" * 80)
+        print(f"\nLog Dosyası: {self.main_log_file}")
+        print("Ctrl+C ile programı sonlandırabilirsiniz.")
+
     def log_traffic(self, data):
         # Ana logga kaydet
         self.main_logger.info(json.dumps(data))
@@ -98,32 +118,24 @@ class TrafficServer:
         # Kaynak IP için logla
         source_ip = data['source_ip']
         source_logger = self.get_ip_logger(source_ip)
-        source_logger.info(f"OUT -> {data['dest_ip']} | Protocol: {data['protocol']} | Size: {data['size']} bytes | Ports: {data['ports']}")
+        source_logger.info(
+            f"GIDEN -> {data['dest_ip']} | "
+            f"Protocol: {data['protocol']} | "
+            f"Size: {data['size']} bytes | "
+            f"Ports: {data['ports']} | "
+            f"Veri: {data['data']}"
+        )
         
         # Hedef IP için logla
         dest_ip = data['dest_ip']
         dest_logger = self.get_ip_logger(dest_ip)
-        dest_logger.info(f"IN <- {source_ip} | Protocol: {data['protocol']} | Size: {data['size']} bytes | Ports: {data['ports']}")
-
-    def print_status(self):
-        os.system('clear')
-        uptime = time.time() - self.start_time
-        
-        print("=" * 50)
-        print(f"TRAFFIC ANALYZER STATUS")
-        print("=" * 50)
-        print(f"Uptime: {int(uptime//3600)}h {int((uptime%3600)//60)}m {int(uptime%60)}s")
-        print(f"Total Packets: {self.total_packets}")
-        print(f"Active IP Loggers: {len(self.ip_loggers)}")
-        print(f"Main Log: {self.main_log_file}")
-        print("=" * 50)
-        
-        # IP bazlı istatistikler
-        print("\nACTIVE IP ADDRESSES:")
-        for ip in sorted(self.ip_loggers.keys()):
-            log_file = f"{self.ip_log_dir}/{ip}/traffic_{self.current_date}.log"
-            size = os.path.getsize(log_file) if os.path.exists(log_file) else 0
-            print(f"IP: {ip} | Log Size: {size/1024:.2f} KB")
+        dest_logger.info(
+            f"GELEN <- {source_ip} | "
+            f"Protocol: {data['protocol']} | "
+            f"Size: {data['size']} bytes | "
+            f"Ports: {data['ports']} | "
+            f"Veri: {data['data']}"
+        )
 
     async def handle_client(self, websocket):
         client_ip = websocket.remote_address[0]
@@ -140,8 +152,7 @@ class TrafficServer:
                     self.log_traffic(data)
                     
                     # Ekranı güncelle
-                    if self.total_packets % 10 == 0:  # Her 10 pakette bir güncelle
-                        self.print_status()
+                    self.print_packet(data)
                     
                 except json.JSONDecodeError:
                     self.main_logger.error(f"Invalid JSON data: {message}")
@@ -162,7 +173,8 @@ class TrafficServer:
             )
             
             self.main_logger.info("Server started successfully")
-            await asyncio.Future()
+            print(f"Log dosyası: {self.main_log_file}")
+            await asyncio.Future()  # Sonsuza kadar çalış
             
         except Exception as e:
             self.main_logger.error(f"Server error: {e}")
